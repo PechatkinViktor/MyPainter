@@ -57,8 +57,22 @@ public class DrawView extends View {
                     break;
                 case PATH:
                     canvas.drawPath(model.getPath(), mPaint);
+                    break;
                 case POINT:
                     canvas.drawPoint(points.get(0).x, points.get(0).y, mPaint);
+                    break;
+                case MULTITOUCH:
+                    if(points.size() == 1) {
+                        canvas.drawPoint(points.get(0).x, points.get(0).y, mPaint);
+                    } else
+                        for (int i = 0; i < points.size(); i++) {
+                            float x = points.get(i).x;
+                            float y = points.get(i).y;
+                            float nextX = (i+1 == points.size())? points.get(0).x : points.get(i+1).x;
+                            float nextY = (i+1 == points.size())? points.get(0).y : points.get(i+1).y;
+                            canvas.drawLine(x, y, nextX, nextY, mPaint);
+                        }
+                     break;
             }
         }
     }
@@ -72,7 +86,11 @@ public class DrawView extends View {
                 actionDown(x, y);
                 break;
             case MotionEvent.ACTION_MOVE:
-                actionMove(x, y);
+                actionMove(x, y, event);
+                break;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                if(mCurrentType == Types.MULTITOUCH)
+                    actionPointerDown(event);
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
@@ -84,7 +102,18 @@ public class DrawView extends View {
         return true;
     }
 
-    private void actionMove(float x, float y) {
+    private void actionPointerDown(MotionEvent event) {
+        int pointerId = event.getPointerId(event.getActionIndex());
+        List<PointF> points = mPointModels.get(mPointModels.size()-1).getPoints();
+        if(points.size() == pointerId){
+            points.add(new PointF());
+        }
+        PointF point = points.get(pointerId);
+        point.x = event.getX(event.getActionIndex());
+        point.y = event.getY(event.getActionIndex());
+    }
+
+    private void actionMove(float x, float y, MotionEvent event) {
         List<PointF> points = mPointModels.get(mPointModels.size()-1).getPoints();
         switch (mCurrentType){
             case LINE:
@@ -95,6 +124,14 @@ public class DrawView extends View {
                 break;
             case PATH:
                 mPointModels.get(mPointModels.size()-1).getPath().lineTo(x, y);
+                break;
+            case MULTITOUCH:
+                for (int i = 0; i < event.getPointerCount(); i++) {
+                    int id = event.getPointerId(i);
+                    PointF point = points.get(id);
+                    point.x = event.getX(i);
+                    point.y = event.getY(i);
+                }
                 break;
         }
     }
@@ -109,6 +146,7 @@ public class DrawView extends View {
                 break;
             case PATH:
             case POINT:
+            case MULTITOUCH:
                 points = new ArrayList<>(Collections.singletonList(new PointF(x, y)));
                 break;
         }
